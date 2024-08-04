@@ -9,3 +9,5 @@
    - Menggunakan library DMD2 untuk Led Panel P10
 
 ![FireShot Capture 015 - Clock Settings - ](https://github.com/user-attachments/assets/2d965862-10a2-4d07-9eaf-e40630c8554f)
+
+Jika ingin ubah library menjadi LED P5 cari tulisan ini "dmd"
