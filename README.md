@@ -3,9 +3,7 @@
 2. Terdapat fitur ubah
    - WiFi AP
    - WiFi Router
-   - NTP Server atau Manual jam (belum ada DS3231)
-      #include <TimeLib.h>
-      #include <NTPClient.h>
+   - NTP Server atau Manual jam (belum ada DS3231) #include <TimeLib.h> #include <NTPClient.h>
    - Setting Jadwal Shalat
    - Reset pengaturan tetapi tidak akan reset jadwal shalat
    - Menggunakan library DMD2 untuk Led Panel P10
