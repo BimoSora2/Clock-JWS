@@ -1,5 +1,5 @@
 # Clock-JWS
-1. Kode mendukung ESP8266 dan ESP32
+1. Hanya mendukung ESP8266
 2. Terdapat fitur ubah
    - WiFi AP
    - WiFi Router
@@ -8,6 +8,20 @@
    - Reset pengaturan tetapi tidak akan reset jadwal shalat
    - Menggunakan library DMD2 untuk Led Panel P10
 
-![FireShot Capture 015 - Clock Settings - ](https://github.com/user-attachments/assets/2d965862-10a2-4d07-9eaf-e40630c8554f)
+![FireShot Capture 017 - Clock Settings - ](https://github.com/user-attachments/assets/2734b417-cee4-48ce-92a8-4ceb51c417c0)
 
 Jika ingin ubah library menjadi LED P5 cari tulisan ini "dmd"
+
+Library Install
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <FS.h>
+#include <ESPAsyncWebServer.h>
+#include <SPI.h>
+#include <DMD2.h>
+#include <fonts/SystemFont5x7.h>
+#include <TimeLib.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <AsyncHTTPRequest_Generic.h>
+#include <ArduinoJson.h>
