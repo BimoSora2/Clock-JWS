@@ -3,7 +3,7 @@
 2. Terdapat fitur ubah
    - WiFi AP
    - WiFi Router
-   - NTP Server atau Manual jam (belum ada DS3231) #include <TimeLib.h> #include <NTPClient.h>
+   - NTP Server atau Manual jam (belum ada DS3231)
    - Setting Jadwal Shalat
    - Reset pengaturan tetapi tidak akan reset jadwal shalat
    - Menggunakan library DMD2 untuk Led Panel P10
@@ -12,12 +12,12 @@
 
 Jika ingin ubah library menjadi LED P5 cari tulisan ini "dmd"
 
-Library Install
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include <FS.h>
-#include <ESPAsyncWebServer.h>
-#include <SPI.h>
+Library Install </br>
+#include <ESP8266WiFi.h> </br>
+#include <ESPAsyncTCP.h> </br>
+#include <FS.h> </br>
+#include <ESPAsyncWebServer.h> </br>
+#include <SPI.h> </br>
 #include <DMD2.h>
 #include <fonts/SystemFont5x7.h>
 #include <TimeLib.h>
