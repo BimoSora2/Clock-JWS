@@ -1,12 +1,12 @@
-#if defined(ESP8266)
-  #include <ESP8266WiFi.h>
-  #include <ESPAsyncTCP.h>
-  #include <FS.h>
-#elif defined(ESP32)
-  #include <WiFi.h>
-  #include <AsyncTCP.h>
-  #include <SPIFFS.h>
-#endif
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <FS.h>
+
+#define PIN_DMD_CLK 14  // Example pin number for ESP8266
+#define PIN_DMD_DATA 13  // Example pin number for ESP8266
+#define PIN_DMD_CS 15    // Example pin number for ESP8266
+#define PIN_DMD_OE 4     // Example pin number for ESP8266
+#define PIN_DMD_A 5      // Example pin number for ESP8266
 
 #include <ESPAsyncWebServer.h>
 #include <SPI.h>
@@ -15,13 +15,15 @@
 #include <TimeLib.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <AsyncHTTPRequest_Generic.h>
+#include <ArduinoJson.h>
 
-#define PANELS_WIDTH 1
+#define PANELS_WIDTH 2
 #define PANELS_HEIGHT 1
-
 const uint8_t *FONT = SystemFont5x7;
 
-SPIDMD dmd(PANELS_WIDTH, PANELS_HEIGHT);
+// Initialize the DMD2 library with the specified pins
+SPIDMD dmd(PANELS_WIDTH, PANELS_HEIGHT, PIN_DMD_OE, PIN_DMD_A, PIN_DMD_CLK, PIN_DMD_DATA);
 
 char apSSID[33] = "Clock Setting";
 char apPassword[65] = "12345678";
@@ -36,6 +38,9 @@ const long wifiCheckInterval = 30000;
 unsigned long lastNTPUpdate = 0;
 unsigned long lastSuccessfulNTPUpdate = 0;
 const unsigned long ntpUpdateInterval = 3600000;
+
+unsigned long lastUpdateCheck = 0;
+const unsigned long updateInterval = 60000; // Check every minute
 
 bool colonOn = true;
 time_t currentTime = 0;
@@ -55,6 +60,8 @@ String isyaTime = "19:30";
 bool displayNeedsUpdate = false;
 int failedNTPUpdates = 0;
 int failedWiFiConnections = 0;
+
+String selectedCityId = "";
 
 void resetSettings() {
   routerSSID = "";
@@ -122,32 +129,38 @@ void saveNTPServer(String server) {
   }
 }
 
-void loadPrayerTimes() {
-  if (SPIFFS.exists("/prayer_times.txt")) {
-    File file = SPIFFS.open("/prayer_times.txt", "r");
+void savePrayerTimes() {
+    File file = SPIFFS.open("/prayer_times.txt", "w");
     if (file) {
-      subuhTime = file.readStringUntil('\n'); subuhTime.trim();
-      zuhurTime = file.readStringUntil('\n'); zuhurTime.trim();
-      asarTime = file.readStringUntil('\n'); asarTime.trim();
-      maghribTime = file.readStringUntil('\n'); maghribTime.trim();
-      isyaTime = file.readStringUntil('\n'); isyaTime.trim();
-      file.close();
-      Serial.println("Waktu sholat dimuat");
+        file.println(subuhTime);
+        file.println(zuhurTime);
+        file.println(asarTime);
+        file.println(maghribTime);
+        file.println(isyaTime);
+        file.close();
+        Serial.println("Waktu sholat disimpan");
     }
-  }
 }
 
-void savePrayerTimes() {
-  File file = SPIFFS.open("/prayer_times.txt", "w");
-  if (file) {
-    file.println(subuhTime);
-    file.println(zuhurTime);
-    file.println(asarTime);
-    file.println(maghribTime);
-    file.println(isyaTime);
-    file.close();
-    Serial.println("Waktu sholat disimpan");
-  }
+void loadPrayerTimes() {
+    if (SPIFFS.exists("/prayer_times.txt")) {
+        File file = SPIFFS.open("/prayer_times.txt", "r");
+        if (file) {
+            subuhTime = file.readStringUntil('\n'); subuhTime.trim();
+            zuhurTime = file.readStringUntil('\n'); zuhurTime.trim();
+            asarTime = file.readStringUntil('\n'); asarTime.trim();
+            maghribTime = file.readStringUntil('\n'); maghribTime.trim();
+            isyaTime = file.readStringUntil('\n'); isyaTime.trim();
+            file.close();
+            Serial.println("Waktu sholat dimuat");
+        }
+    }
+}
+
+void updatePrayerTimesIfNeeded() {
+    if (selectedCityId != "" && isInternetConnected()) {
+        getPrayerTimes(selectedCityId);
+    }
 }
  
 void loadWiFiCredentials() {
@@ -206,6 +219,23 @@ bool checkInternetConnection() {
   Serial.println("Berhasil terhubung ke www.google.com");
   client.stop();
   return true;
+}
+
+bool isInternetConnected() {
+    AsyncHTTPRequest request;
+    bool connected = false;
+
+    request.onReadyStateChange([&](void* optParam, AsyncHTTPRequest* request, int readyState) {
+        if (readyState == readyStateDone && request->responseHTTPcode() == 200) {
+            connected = true;
+        }
+    });
+
+    request.open("GET", "http://www.google.com");
+    request.send();
+    
+    delay(1000); // Menunggu hasil respons
+    return connected;
 }
  
 void connectToWiFi() {
@@ -282,6 +312,59 @@ bool connectWiFiAndNTP() {
   displayNeedsUpdate = true;
   failedNTPUpdates = 0;
   return true;
+}
+
+void saveSelectedCity() {
+    File file = SPIFFS.open("/selected_city.txt", "w");
+    if (file) {
+        file.println(selectedCityId);
+        file.close();
+        Serial.println("ID kota tersimpan: " + selectedCityId);
+    }
+}
+
+void loadSelectedCity() {
+    if (SPIFFS.exists("/selected_city.txt")) {
+        File file = SPIFFS.open("/selected_city.txt", "r");
+        if (file) {
+            selectedCityId = file.readStringUntil('\n');
+            selectedCityId.trim();
+            file.close();
+            Serial.println("ID kota dimuat: " + selectedCityId);
+        }
+    }
+}
+
+void getPrayerTimes(String cityId) {
+    AsyncHTTPRequest request;
+    String url = "https://api.myquran.com/v2/sholat/jadwal/" + cityId + "/" + String(year()) + "/" + String(month()) + "/" + String(day());
+    
+    request.onReadyStateChange([&](void* optParam, AsyncHTTPRequest* request, int readyState) {
+        if (readyState == readyStateDone) {
+            int httpCode = request->responseHTTPcode();
+            if (httpCode > 0) {
+                String payload = request->responseText();
+                DynamicJsonDocument doc(1024);
+                deserializeJson(doc, payload);
+                
+                if (doc["status"] == true) {
+                    JsonObject data = doc["data"]["jadwal"];
+                    subuhTime = data["subuh"].as<String>();
+                    zuhurTime = data["dzuhur"].as<String>();
+                    asarTime = data["ashar"].as<String>();
+                    maghribTime = data["maghrib"].as<String>();
+                    isyaTime = data["isya"].as<String>();
+                    
+                    savePrayerTimes();  // Simpan jadwal shalat ke SPIFFS
+                    saveSelectedCity();
+                    Serial.println("Jadwal shalat diperbarui dan disimpan");
+                }
+            }
+        }
+    });
+
+    request.open("GET", url.c_str());
+    request.send();
 }
  
 void setupServerRoutes() {
@@ -385,66 +468,39 @@ void setupServerRoutes() {
       request->send(400, "text/plain", "Permintaan tidak valid");
     }
   });
+  
+  server.on("/getcities", HTTP_GET, [](AsyncWebServerRequest *request) {
+      if (isInternetConnected()) {
+          String cities = "[{\"id\":1,\"lokasi\":\"ACEH\"},{\"id\":2,\"lokasi\":\"SUMATERA UTARA\"}]";
+          request->send(200, "application/json", cities);
+      } else {
+          request->send(200, "application/json", "{\"status\":\"offline\"}");
+      }
+  });
 
-  server.on("/setsubuh", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("time", true)) {
-      subuhTime = request->getParam("time", true)->value();
-      savePrayerTimes();
-      request->send(200, "text/plain", "Waktu Subuh diperbarui");
-    } else {
-      request->send(400, "text/plain", "Permintaan tidak valid");
-    }
+  server.on("/getselectedcity", HTTP_GET, [](AsyncWebServerRequest *request) {
+      request->send(200, "text/plain", selectedCityId);
   });
   
-  server.on("/setzuhur", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("time", true)) {
-      zuhurTime = request->getParam("time", true)->value();
-      savePrayerTimes();
-      request->send(200, "text/plain", "Waktu Zuhur diperbarui");
-    } else {
-      request->send(400, "text/plain", "Permintaan tidak valid");
-    }
-  });
-  
-  server.on("/setasar", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("time", true)) {
-      asarTime = request->getParam("time", true)->value();
-      savePrayerTimes();
-      request->send(200, "text/plain", "Waktu Asar diperbarui");
-    } else {
-      request->send(400, "text/plain", "Permintaan tidak valid");
-    }
-  });
-  
-  server.on("/setmaghrib", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("time", true)) {
-      maghribTime = request->getParam("time", true)->value();
-      savePrayerTimes();
-      request->send(200, "text/plain", "Waktu Maghrib diperbarui");
-    } else {
-      request->send(400, "text/plain", "Permintaan tidak valid");
-    }
-  });
-  
-  server.on("/setisya", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("time", true)) {
-      isyaTime = request->getParam("time", true)->value();
-      savePrayerTimes();
-      request->send(200, "text/plain", "Waktu Isya diperbarui");
-    } else {
-      request->send(400, "text/plain", "Permintaan tidak valid");
-    }
+  server.on("/updateprayertimes", HTTP_GET, [](AsyncWebServerRequest *request) {
+      if (request->hasParam("cityId")) {
+          String cityId = request->getParam("cityId")->value();
+          selectedCityId = cityId; // Simpan ID kota yang dipilih
+          if (isInternetConnected()) {
+              getPrayerTimes(cityId);
+              String response = "{\"subuh\":\"" + subuhTime + "\",\"dzuhur\":\"" + zuhurTime + "\",\"ashar\":\"" + asarTime + "\",\"maghrib\":\"" + maghribTime + "\",\"isya\":\"" + isyaTime + "\"}";
+              request->send(200, "application/json", response);
+          } else {
+              request->send(503, "text/plain", "Tidak ada koneksi internet");
+          }
+      } else {
+          request->send(400, "text/plain", "Missing cityId parameter");
+      }
   });
   
   server.on("/getprayertimes", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String response = "{";
-    response += "\"subuh\":\"" + subuhTime + "\",";
-    response += "\"zuhur\":\"" + zuhurTime + "\",";
-    response += "\"asar\":\"" + asarTime + "\",";
-    response += "\"maghrib\":\"" + maghribTime + "\",";
-    response += "\"isya\":\"" + isyaTime + "\"";
-    response += "}";
-    request->send(200, "application/json", response);
+      String response = "{\"subuh\":\"" + subuhTime + "\",\"dzuhur\":\"" + zuhurTime + "\",\"ashar\":\"" + asarTime + "\",\"maghrib\":\"" + maghribTime + "\",\"isya\":\"" + isyaTime + "\"}";
+      request->send(200, "application/json", response);
   });
 }
 
@@ -471,28 +527,19 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Memulai Setup...");
   
-  #if defined(ESP32)
-    if (!SPIFFS.begin(true)) {
-      Serial.println("Terjadi kesalahan saat memasang SPIFFS");
-      return;
-    }
-  #elif defined(ESP8266)
-    if (!SPIFFS.begin()) {
-      Serial.println("Terjadi kesalahan saat memasang SPIFFS");
-      return;
-    }
-  #endif
+  if (!SPIFFS.begin()) {
+    Serial.println("Terjadi kesalahan saat memasang SPIFFS");
+    return;
+  }
   Serial.println("SPIFFS berhasil dipasang");
   
   loadWiFiCredentials();
   loadNTPServer();
   loadAPSettings();
+  loadPrayerTimes();
+  loadSelectedCity();
 
-  #if defined(ESP8266)
-    WiFiMode_t savedMode = WIFI_AP_STA;
-  #elif defined(ESP32)
-    WiFiMode_t savedMode = loadWiFiMode();
-  #endif
+  WiFiMode_t savedMode = WIFI_AP_STA;
   WiFi.mode(savedMode);
 
   delay(1000);
@@ -515,8 +562,6 @@ void setup() {
   dmd.begin();
   
   setupServerRoutes();
-
-  loadPrayerTimes();
   
   server.begin();
   Serial.println("Server dimulai");
@@ -576,6 +621,20 @@ void loop() {
       failedNTPUpdates++;
     }
   }
+
+  if (currentMillis - lastUpdateCheck >= updateInterval) {
+      lastUpdateCheck = currentMillis;
+
+      if (hour() == 0 && minute() == 0) {
+          updatePrayerTimesIfNeeded();
+      }
+
+      if (WiFi.status() == WL_CONNECTED && !isInternetConnected()) {
+          // Internet baru saja terhubung kembali
+          updatePrayerTimesIfNeeded();
+      }
+  }
+
   
   if (displayNeedsUpdate) {
     updateDisplay();

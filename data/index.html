@@ -109,84 +109,25 @@
                                             </div>
                                         </div>
 
-                                        <div class="large-6 medium-6 small-6 cell">
-                                            <div class="grid-x grid-margin-x">
-                                                <div class="large-12 medium-12 small-12 cell">
-                                                    SUBUH
-                                                    <div class="grid-x grid-margin-x">
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <input type="text" id="subuhServer" placeholder="00:00">
-                                                        </div>
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <button class="submit success button" onclick="setSUBUHServer()">Set</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="large-6 medium-6 small-6 cell">
-                                            <div class="grid-x grid-margin-x">
-                                                <div class="large-12 medium-12 small-12 cell">
-                                                    ZUHUR
-                                                    <div class="grid-x grid-margin-x">
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <input type="text" id="zuhurServer" placeholder="00:00">
-                                                        </div>
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <button class="submit success button" onclick="setZUHURServer()">Set</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="large-6 medium-6 small-6 cell">
-                                            <div class="grid-x grid-margin-x">
-                                                <div class="large-12 medium-12 small-12 cell">
-                                                    ASAR
-                                                    <div class="grid-x grid-margin-x">
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <input type="text" id="asharServer" placeholder="00:00">
-                                                        </div>
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <button class="submit success button" onclick="setASHARerver()">Set</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="large-6 medium-6 small-6 cell">
-                                            <div class="grid-x grid-margin-x">
-                                                <div class="large-12 medium-12 small-12 cell">
-                                                    MAGHRIB
-                                                    <div class="grid-x grid-margin-x">
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <input type="text" id="maghribServer" placeholder="00:00">
-                                                        </div>
-                                                        <div class="large-12 medium-12 small-12 cell">
-                                                            <button class="submit success button" onclick="setMAGHRIBServer()">Set</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
                                         <div class="grid-x grid-margin-x center">
                                             <div class="large-12 medium-12 small-12 cell">
                                                 <div class="large-6 medium-6 small-6 cell">
                                                     <div class="grid-x grid-margin-x">
                                                         <div class="large-12 medium-12 small-12 cell">
-                                                            ISYA
+                                                            <h4>Jadwal Shalat</h4>
                                                             <div class="grid-x grid-margin-x">
                                                                 <div class="large-12 medium-12 small-12 cell">
-                                                                    <input type="text" id="isyaServer" placeholder="00:00">
+                                                                    <label>Pilih Kota
+                                                                        <select id="citySelect">
+                                                                            <option value="">Pilih Kota</option>
+                                                                        </select>
+                                                                    </label>
                                                                 </div>
                                                                 <div class="large-12 medium-12 small-12 cell">
-                                                                    <button class="submit success button" onclick="setISYAServer()">Set</button>
+                                                                    <button class="button" onclick="updatePrayerTimes()">Update Jadwal Shalat</button>
                                                                 </div>
                                                             </div>
+                                                            <div id="prayerTimes"></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -199,7 +140,7 @@
                         </div>
 
                         <div class="grid-x grid-padding-x">
-                            <div class="large-8 medium-8 sall-12 center cell">
+                            <div class="large-8 medium-8 small-12 center cell">
                                 <div class="grid-x grid-margin-x">
                                     <div class="large-12 medium-12 small-12 cell">
                                         <div class="callout alert">
@@ -212,14 +153,6 @@
                             </div>
                         </div>
 
-                        <div class="grid-x grid-padding-x">
-                            <div class="large-8 medium-8 small-12 center cell">
-                                <div class="callout secondary">
-                                    <p>&copy; 2024 Your Company</p>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -228,146 +161,220 @@
     </div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchCities();
+            loadSavedPrayerTimes();
+            loadSavedCity();
+            updateDeviceStatus();
+            setInterval(updateDeviceStatus, 5000);
+        });
+
+        function updateDeviceStatus() {
+            fetch('/devicestatus')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('wifiStatus').textContent = data.ssid || 'Tidak Terhubung';
+                    document.getElementById('ipAddress').textContent = data.ip || '-';
+                    document.getElementById('currentTime').textContent = data.currentTime || '-';
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function fetchCities() {
+            fetch('/getcities')
+                .then(response => response.json())
+                .then(data => {
+                    const citySelect = document.getElementById('citySelect');
+                    citySelect.innerHTML = ''; // Clear existing options
+
+                    if (data.status === "offline") {
+                        const option = document.createElement('option');
+                        option.value = "";
+                        option.textContent = "Aktifkan Internet";
+                        citySelect.appendChild(option);
+                        citySelect.disabled = true;
+                    } else {
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = "";
+                        defaultOption.textContent = "Pilih Kota";
+                        citySelect.appendChild(defaultOption);
+
+                        data.forEach(city => {
+                            const option = document.createElement('option');
+                            option.value = city.id;
+                            option.textContent = city.lokasi;
+                            citySelect.appendChild(option);
+                        });
+                        citySelect.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const citySelect = document.getElementById('citySelect');
+                    citySelect.innerHTML = '<option value="">Aktifkan Internet</option>';
+                    citySelect.disabled = true;
+                });
+        }
+
+        function loadSavedPrayerTimes() {
+            fetch('/getprayertimes')
+                .then(response => response.json())
+                .then(data => {
+                    updatePrayerTimesDisplay(data);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function loadSavedCity() {
+            fetch('/getselectedcity')
+                .then(response => response.text())
+                .then(cityId => {
+                    if (cityId) {
+                        document.getElementById('citySelect').value = cityId;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updatePrayerTimesDisplay(data) {
+            const prayerTimesDiv = document.getElementById('prayerTimes');
+            prayerTimesDiv.innerHTML = `
+                <p>Subuh: ${data.subuh}</p>
+                <p>Zuhur: ${data.dzuhur}</p>
+                <p>Asar: ${data.ashar}</p>
+                <p>Maghrib: ${data.maghrib}</p>
+                <p>Isya: ${data.isya}</p>
+            `;
+        }
+
+        function updatePrayerTimes() {
+            const citySelect = document.getElementById('citySelect');
+            if (citySelect.disabled) {
+                alert('Tidak ada koneksi internet. Silakan aktifkan internet dan coba lagi.');
+                return;
+            }
+
+            const cityId = citySelect.value;
+            if (!cityId) {
+                alert('Silakan pilih kota terlebih dahulu');
+                return;
+            }
+
+            fetch(`/updateprayertimes?cityId=${cityId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    updatePrayerTimesDisplay(data);
+                    alert('Jadwal shalat berhasil diperbarui dan disimpan');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Gagal memperbarui jadwal shalat. Pastikan koneksi internet aktif.');
+                });
+        }
+
         function setWiFi() {
-            var ssid = document.getElementById("wifiSSID").value;
-            var password = document.getElementById("wifiPassword").value;
+            const ssid = document.getElementById('wifiSSID').value;
+            const password = document.getElementById('wifiPassword').value;
 
-            if (!ssid || ssid.length < 3) {
-                alert("Please enter a valid WiFi SSID with at least 3 characters.");
+            if (!ssid) {
+                alert('Silakan masukkan SSID WiFi');
                 return;
             }
 
-            if (password.length < 8) {
-                alert("Please enter a valid WiFi password with at least 8 characters.");
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/setwifi", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            xhr.send("ssid=" + encodeURIComponent(ssid) + "&password=" + encodeURIComponent(password));
-            xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert("WiFi credentials updated successfully. The device will restart.");
-                } else {
-                    alert("Failed to update WiFi credentials");
-                }
-            };
+            fetch('/setwifi', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+                location.reload();
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         function setAP() {
-            var ssid = document.getElementById("apSSID").value;
-            var password = document.getElementById("apPassword").value;
+            const ssid = document.getElementById('apSSID').value;
+            const password = document.getElementById('apPassword').value;
 
-            if (!ssid || ssid.length < 3) {
-                alert("Please enter a valid AP SSID with at least 3 characters.");
+            if (!ssid) {
+                alert('Silakan masukkan SSID Access Point');
                 return;
             }
 
-            if (password.length < 8) {
-                alert("Please enter a valid AP password with at least 8 characters.");
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/setap", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            xhr.send("ssid=" + encodeURIComponent(ssid) + "&password=" + encodeURIComponent(password));
-            xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert("AP credentials updated successfully. The device will restart.");
-                } else {
-                    alert("Failed to update AP credentials");
-                }
-            };
+            fetch('/setap', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+                location.reload();
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         function setNTPServer() {
-            var server = document.getElementById("ntpServer").value;
+            const server = document.getElementById('ntpServer').value;
 
-            if (!server || server.length < 3) {
-                alert("Please enter a valid NTP server.");
+            if (!server) {
+                alert('Silakan masukkan alamat server NTP');
                 return;
             }
 
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/setntpserver", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            xhr.send("server=" + encodeURIComponent(server));
-            xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert("NTP server updated successfully");
-                } else {
-                    alert("Failed to update NTP server");
-                }
-            };
+            fetch('/setntpserver', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `server=${encodeURIComponent(server)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            })
+            .catch(error => console.error('Error:', error));
         }
-
-        function setPrayerTime(id, endpoint) {
-            var time = document.getElementById(id).value;
-
-            if (!/^\d{2}:\d{2}$/.test(time)) {
-                alert("Please enter a valid time in the format HH:MM.");
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", endpoint, true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            xhr.send("time=" + encodeURIComponent(time));
-            xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert("Time updated successfully");
-                } else {
-                    alert("Failed to update time");
-                }
-            };
-        }
-
-        function setSUBUHServer() { setPrayerTime("subuhServer", "/setsubuh"); }
-        function setZUHURServer() { setPrayerTime("zuhurServer", "/setzuhur"); }
-        function setASHARServer() { setPrayerTime("asharServer", "/setashar"); }
-        function setMAGHRIBServer() { setPrayerTime("maghribServer", "/setmaghrib"); }
-        function setISYAServer() { setPrayerTime("isyaServer", "/setisya"); }
 
         function syncTime() {
-            var date = new Date();
-            var hours = date.getHours();
-            var minutes = date.getMinutes();
-            var currentTime = hours + ":" + minutes;
-
-            if (!/^\d{1,2}:\d{1,2}$/.test(currentTime)) {
-                alert("Failed to sync time. Invalid time format.");
-                return;
-            }
-
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", "/settime", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            xhr.send("time=" + encodeURIComponent(currentTime));
-            xhr.onload = function() {
-                if (xhr.status == 200) {
-                    alert("Time synced successfully");
-                } else {
-                    alert("Failed to sync time");
-                }
-            };
+            fetch('/synctime', { method: 'POST' })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+                updateDeviceStatus();
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         function resetSettings() {
-            if (confirm("Are you sure you want to reset all settings?")) {
-                var xhr = new XMLHttpRequest();
-                xhr.open("POST", "/reset", true);
-                xhr.onload = function() {
-                    if (xhr.status == 200) {
-                        alert("All settings have been reset. The device will restart.");
-                    } else {
-                        alert("Failed to reset settings.");
-                    }
-                };
-                xhr.send();
+            if (confirm('Apakah Anda yakin ingin mereset semua pengaturan? Ini akan mengembalikan semua nilai ke default.')) {
+                fetch('/reset', { method: 'POST' })
+                .then(response => response.text())
+                .then(data => {
+                    alert(data);
+                    location.reload();
+                })
+                .catch(error => console.error('Error:', error));
             }
         }
+
+        // Event listener untuk perubahan pilihan kota
+        document.getElementById('citySelect').addEventListener('change', function() {
+            if (this.value) {
+                updatePrayerTimes();
+            }
+        });
     </script>
 
 </body>
