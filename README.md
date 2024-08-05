@@ -25,4 +25,4 @@ Library Install </br>
 #include <ArduinoJson.h> </br>
 
 Note: </br>
-Jika ingin ubah library menjadi LED P5 cari tulisan ini "dmd"
+Jika ingin ubah library menjadi LED P5 cari tulisan ini **dmd**
