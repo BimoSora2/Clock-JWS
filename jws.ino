@@ -2,12 +2,6 @@
 #include <ESPAsyncTCP.h>
 #include <FS.h>
 
-#define PIN_DMD_CLK 14  // Example pin number for ESP8266
-#define PIN_DMD_DATA 13  // Example pin number for ESP8266
-#define PIN_DMD_CS 15    // Example pin number for ESP8266
-#define PIN_DMD_OE 4     // Example pin number for ESP8266
-#define PIN_DMD_A 5      // Example pin number for ESP8266
-
 #include <ESPAsyncWebServer.h>
 #include <SPI.h>
 #include <DMD2.h>
@@ -21,6 +15,12 @@
 #define PANELS_WIDTH 2
 #define PANELS_HEIGHT 1
 const uint8_t *FONT = SystemFont5x7;
+
+#define PIN_DMD_CLK 14  // Example pin number for ESP8266
+#define PIN_DMD_DATA 13  // Example pin number for ESP8266
+#define PIN_DMD_CS 15    // Example pin number for ESP8266
+#define PIN_DMD_OE 4     // Example pin number for ESP8266
+#define PIN_DMD_A 5      // Example pin number for ESP8266
 
 // Initialize the DMD2 library with the specified pins
 SPIDMD dmd(PANELS_WIDTH, PANELS_HEIGHT, PIN_DMD_OE, PIN_DMD_A, PIN_DMD_CLK, PIN_DMD_DATA);
