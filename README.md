@@ -4,7 +4,7 @@
    - WiFi AP
    - WiFi Router
    - NTP Server atau Manual jam (belum ada DS3231)
-   - Setting Jadwal Shalat
+   - Setting Jadwal Shalat menggunakan API
    - Reset pengaturan tetapi tidak akan reset jadwal shalat
    - Menggunakan library DMD2 untuk Led Panel P10
 
